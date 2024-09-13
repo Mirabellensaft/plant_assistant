@@ -1,4 +1,7 @@
 #include <Arduino.h>
+#include <SPI.h>
+#include <WiFiS3.h>
+#include "secrets.h"
 
 // Variables
 int sensorPin = A0;
@@ -12,14 +15,23 @@ void setup() {
   Serial.begin(9600);
   // sets the above defined sensor pin in input mode
   pinMode(sensorPin, INPUT);
+  // setup wifi
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+
+    Serial.println("Connected to wifi.");
 
 }
 
 void loop() {
   int sensorValue = analogRead(sensorPin); 
-    Serial.print("Analog Sensor Value: ");
-    Serial.println(sensorValue); 
-    delay(1000);  
+  Serial.print("Analog Sensor Value: ");
+  Serial.println(sensorValue); 
+  delay(1000);  
 }
 
 // put function definitions here:
