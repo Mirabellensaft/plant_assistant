@@ -3,16 +3,17 @@
 #include <WiFiS3.h>
 #include <ArduinoHttpClient.h> 
 #include <Base64.h> 
-#include "secrets.h"
+#include <secrets.h>
 
 // Variables
 int sensorPin = A0;
 int sensorValue;
+const char* serverAddress = "https://influx-prod-24-prod-eu-west-2.grafana.net/api/v1/push/influx/write"; 
+int port = 443; 
 
 // put function declarations here:
-int send_to_grafana(int value, char* auth);
+void sendPostRequest(const char* serverAddress, int port, const char* postData, int statusCode, String response);
 char* base64_encoding();
-
 
 void setup() {
   // setup serial communication, 9600 set as a default value
@@ -38,11 +39,13 @@ void setup() {
       Serial.println(rssi);
     } else {
       Serial.print("error");
-    }
+    } 
 }
 
 void loop() {
-  Serial.print("enter void");
+  int statusCode;
+  const char* response;
+  
   int sensorValue = analogRead(sensorPin); 
   Serial.print("Analog Sensor Value: ");
   Serial.println(sensorValue); 
@@ -51,51 +54,39 @@ void loop() {
   long rssi = WiFi.RSSI();
   Serial.print("Signalstärke (RSSI): ");
   Serial.println(rssi);
-  char* auth = base64_encoding();
-  send_to_grafana(sensorValue, auth);
+  char buffer[20];  // Puffer für den konvertierten String
+    // Konvertiere int in char*
+  sprintf(buffer, "test,bar_label=abc,source=grafana_cloud_docs metric=%d", sensorValue);
+
+  sendPostRequest(serverAddress, port, buffer, statusCode, response);
+
+  Serial.print("Statuscode: ");
+  Serial.println(statusCode);
+  Serial.print("Antwort: ");
+  Serial.println(response);
+
   delay(1000);  
 }
 
 // put function definitions here:
-int send_to_grafana(int value, char* auth) {
-    char buffer[20];  // Puffer für den konvertierten String
-    // Konvertiere int in char*
-    sprintf(buffer, "test,bar_label=abc,source=grafana_cloud_docs metric=%d", value);
-
-    const char* serverAddress = "https://influx-prod-24-prod-eu-west-2.grafana.net/api/v1/push/influx/write"; 
-    int port = 443; 
+void sendPostRequest(const char* serverAddress, int port, const char* postData, int statusCode, String response) {
+    
+    char* auth = base64_encoding();
     WiFiClient wifi;
-    HttpClient http = HttpClient(wifi, serverAddress, port);
+    HttpClient httpClient(wifi, serverAddress, port);
+    
+    httpClient.beginRequest();
+    httpClient.post(serverAddress);  // Ersetze "/endpoint" durch deinen API-Endpunkt
+    httpClient.sendHeader("Content-Type", "text/plain");
+    httpClient.sendHeader("Authorization", "Basic ");
+    httpClient.sendHeader("Authorization", auth);
+    httpClient.sendHeader("Content-Length", strlen(postData));
+    httpClient.beginBody();
+    httpClient.print(postData);
+    httpClient.endRequest();
 
-    String postData = buffer;
-
-    // HTTP POST-Anfrage vorbereiten
-    Serial.println("begin request");
-    http.beginRequest();
-    http.post(serverAddress); 
-    Serial.println("send header");
-    http.sendHeader("Content-Type", "text/plain");
-    http.sendHeader("Authorization", "Basic ");
-    Serial.println("send ath");
-    http.sendHeader("Authorization", auth);
-    http.sendHeader("Content-Length", postData.length());
-    http.beginBody();
-    Serial.println("post body");
-    http.print(postData);
-    http.endRequest();
-    Serial.println("end request");
-   
-    Serial.println("wait for status");
-    int statusCode = http.responseStatusCode();
-
-    String response = http.responseBody();
-
-
-    Serial.print("Statuscode: ");
-    Serial.println(statusCode);
-    Serial.print("Antwort: ");
-    Serial.println(response);
-
+    statusCode = httpClient.responseStatusCode();
+    response = httpClient.responseBody();
 };
 
 char* base64_encoding() {
@@ -105,16 +96,10 @@ char* base64_encoding() {
     
     int inputStringLength = strlen(auth);
     int encodedLength = Base64.encodedLength(inputStringLength);
-    
-    // Dynamischen Speicher für den kodierten String anfordern
-    char* encodedString = (char*)malloc(encodedLength + 1);  // +1 für Null-Terminierung
-    if (encodedString == nullptr) {
-        return nullptr;
-    }
+    char encodedString[encodedLength];
     
     Base64.encode(encodedString, auth, inputStringLength);
     encodedString[encodedLength] = '\0';  // Null-Terminierung sicherstellen
     
     return encodedString;
 }
-
