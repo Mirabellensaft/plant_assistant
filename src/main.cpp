@@ -1,19 +1,47 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <WiFiS3.h>
-#include <ArduinoHttpClient.h> 
-#include <Base64.h> 
+#include <PubSubClient.h>
 #include <secrets.h>
 
 // Variables
 int sensorPin = A0;
 int sensorValue;
-const char* serverAddress = "https://influx-prod-24-prod-eu-west-2.grafana.net/api/v1/push/influx/write"; 
-int port = 443; 
+const char* broker = MQTT_BROKER_IP;
+
 
 // put function declarations here:
-void sendPostRequest(const char* serverAddress, int port, const char* postData, int statusCode, String response);
-char* base64_encoding();
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  for (int i=0;i<length;i++) {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
+}
+
+WiFiClient wifi;
+PubSubClient client(wifi);
+
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Attempt to connect
+    if (client.connect("arduinoClient")) {
+      Serial.println("connected");
+      client.subscribe("inTopic");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
 
 void setup() {
   // setup serial communication, 9600 set as a default value
@@ -40,12 +68,19 @@ void setup() {
     } else {
       Serial.print("error");
     } 
-}
+
+  client.setServer(broker, 1883);
+  client.setCallback(callback);
+};
 
 void loop() {
   int statusCode;
   const char* response;
-  
+  {
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
   int sensorValue = analogRead(sensorPin); 
   Serial.print("Analog Sensor Value: ");
   Serial.println(sensorValue); 
@@ -55,51 +90,16 @@ void loop() {
   Serial.print("Signalstärke (RSSI): ");
   Serial.println(rssi);
   char buffer[20];  // Puffer für den konvertierten String
-    // Konvertiere int in char*
-  sprintf(buffer, "test,bar_label=abc,source=grafana_cloud_docs metric=%d", sensorValue);
 
-  sendPostRequest(serverAddress, port, buffer, statusCode, response);
+  sprintf(buffer, "{\"value\": %d}", sensorValue);
 
-  Serial.print("Statuscode: ");
-  Serial.println(statusCode);
-  Serial.print("Antwort: ");
-  Serial.println(response);
-
-  delay(1000);  
-}
-
-// put function definitions here:
-void sendPostRequest(const char* serverAddress, int port, const char* postData, int statusCode, String response) {
-    
-    char* auth = base64_encoding();
-    WiFiClient wifi;
-    HttpClient httpClient(wifi, serverAddress, port);
-    
-    httpClient.beginRequest();
-    httpClient.post(serverAddress);  // Ersetze "/endpoint" durch deinen API-Endpunkt
-    httpClient.sendHeader("Content-Type", "text/plain");
-    httpClient.sendHeader("Authorization", "Basic ");
-    httpClient.sendHeader("Authorization", auth);
-    httpClient.sendHeader("Content-Length", strlen(postData));
-    httpClient.beginBody();
-    httpClient.print(postData);
-    httpClient.endRequest();
-
-    statusCode = httpClient.responseStatusCode();
-    response = httpClient.responseBody();
+  String payload = buffer;
+  client.publish("plants/plant_01", payload.c_str());
+  delay(5000);  // Daten alle 5 Sekunden senden
+  };
 };
+  
+  
 
-char* base64_encoding() {
-    // Base64-Kodierung von "USER_ID:API_KEY"
-    char auth[256];
-    snprintf(auth, sizeof(auth), "%s:%s", USER_ID, API_KEY);
-    
-    int inputStringLength = strlen(auth);
-    int encodedLength = Base64.encodedLength(inputStringLength);
-    char encodedString[encodedLength];
-    
-    Base64.encode(encodedString, auth, inputStringLength);
-    encodedString[encodedLength] = '\0';  // Null-Terminierung sicherstellen
-    
-    return encodedString;
-}
+ 
+
