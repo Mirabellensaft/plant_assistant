@@ -22,7 +22,7 @@ typedef enum {
 state_t state = SLEEP;
 
 
-// put function declarations here:
+//function declarations:
 
 void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
@@ -43,13 +43,12 @@ void mqtt_reconnect() {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
     if (client.connect("arduinoClient")) {
-      Serial.println("connected");
+      Serial.println("connected.");
       client.subscribe("inTopic");
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
       delay(5000);
     }
   }
@@ -143,7 +142,3 @@ void loop() {
   }
 };
   
-  
-
- 
-
