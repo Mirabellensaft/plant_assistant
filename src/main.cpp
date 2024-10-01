@@ -4,7 +4,7 @@
 #include <PubSubClient.h>
 #include <secrets.h>
 
-// Variables
+// Variables:
 int sensorPin = A0;
 int sensorValue;
 const char* broker = MQTT_BROKER_IP;
@@ -22,8 +22,7 @@ typedef enum {
 state_t state = SLEEP;
 
 
-//function declarations:
-
+// function declarations:
 void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
@@ -44,7 +43,7 @@ void mqtt_reconnect() {
     // Attempt to connect
     if (client.connect("arduinoClient")) {
       Serial.println("connected.");
-      client.subscribe("inTopic");
+      client.subscribe("channel");
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -65,25 +64,24 @@ void wifi_reconnect() {
     
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("connected.");
-    Serial.print("IP Adresse: ");
-    Serial.println(WiFi.localIP());
+    // Serial.print("IP Adresse: ");
+    // Serial.println(WiFi.localIP());
 
     // RSSI (Signalstärke)
     long rssi = WiFi.RSSI();
-    Serial.print("Signalstärke (RSSI): ");
-    Serial.println(rssi);
+    // Serial.print("Signalstärke (RSSI): ");
+    // Serial.println(rssi);
   } else {
     Serial.print("error");
   } 
-
 }
 
 void setup() {
-  // setup serial communication, 9600 set as a default value
+  // Setup serial communication, 9600 set as a default value
   Serial.begin(9600);
   pinMode(sensorPin, INPUT);
 
-  // setup wifi
+  // Setup wifi
   wifi_reconnect();
 
   client.setServer(broker, 1883);
@@ -97,8 +95,7 @@ void loop() {
   String payload = buffer;
   int sensorValue = 0;
 
-  switch (state)
-  {
+  switch (state) {
     case WAKE_UP:
       Serial.println("Waking up...");
       wifi_reconnect();
@@ -116,6 +113,7 @@ void loop() {
       break;
 
     case SET_SLEEP:
+      client.loop();
       Serial.println("Setting to sleep.");
       client.disconnect();
       wifi.stop();
@@ -124,7 +122,6 @@ void loop() {
 
     case AWAKE:
       Serial.println("Awake.");
-      client.loop();
       sensorValue = analogRead(sensorPin); 
       Serial.print("Analog Sensor Value: ");
       Serial.println(sensorValue); 
@@ -132,6 +129,8 @@ void loop() {
       sprintf(buffer, "{\"value\": %d}", sensorValue);
 
       client.publish("plants/plant_01", payload.c_str());
+      delay(5000);
+      client.loop();
       state = SET_SLEEP;
       break;
 
