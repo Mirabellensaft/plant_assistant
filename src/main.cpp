@@ -3,14 +3,15 @@
 #include <WiFiS3.h>
 #include <PubSubClient.h>
 #include <pa_connectivity.h>
+#include <led_signalling.h>
 #include <secrets.h>
 
 // Variables:
 // Pins:
 int sensorPin = A0;
-int led_green = D4;
-int led_blue = D5;
-int led_red = D6;
+const int GREEN = D4;
+const int BLUE = D5;
+const int RED = D6;
 
 // Secrets:
 const char* broker = MQTT_BROKER_IP;
@@ -22,6 +23,7 @@ const char* wifi_password = WIFI_PASSWORD;
 // Values:
 int sensorValue;
 int sleep_duration = 5000;
+int mqtt_keepalive = 4500;
 
 // States:
 typedef enum {
@@ -41,19 +43,24 @@ void setup() {
   // Setup serial communication, 9600 set as a default value
   Serial.begin(9600);
   pinMode(sensorPin, INPUT);
-  pinMode(led_green, OUTPUT);
-  pinMode(led_blue, OUTPUT);
-  pinMode(led_red, OUTPUT);
+  pinMode(GREEN, OUTPUT);
+  pinMode(BLUE, OUTPUT);
+  pinMode(RED, OUTPUT);
 
-  digitalWrite(led_green, HIGH);
-  digitalWrite(led_blue, HIGH);
-  digitalWrite(led_red, HIGH);
+  digitalWrite(GREEN, HIGH);
+  digitalWrite(BLUE, HIGH);
+  digitalWrite(RED, HIGH);
+  delay(500);
+  digitalWrite(GREEN, LOW);
+  digitalWrite(BLUE, LOW);
+  digitalWrite(RED, LOW);
 
   // Setup wifi
   wifi_reconnect(wifi_ssid, wifi_password);
 
   // Setup MQTT
   client.setServer(broker, 1883);
+  client.setKeepAlive(mqtt_keepalive);
   client.setCallback(callback);
 };
 
@@ -67,17 +74,18 @@ void loop() {
   // State machine to gracefully disconnect and reconnect services
   switch (state) {
     case WAKE_UP:
+      
       Serial.println("Waking up...");
       wifi_reconnect(wifi_ssid, wifi_password);
       if (!client.connected()) {
-        mqtt_reconnect(client, user, user_password);
+        mqtt_reconnect(&client, user, user_password);
       };
       state = AWAKE;
       break;
 
     case ONLY_WIFI:
       if (!client.connected()) {
-        mqtt_reconnect(client, user, user_password);
+        mqtt_reconnect(&client, user, user_password);
       };
       state = AWAKE;
       break;
@@ -99,6 +107,7 @@ void loop() {
       sprintf(buffer, "{\"value\": %d}", sensorValue);
 
       client.publish("plants/plant_01", payload.c_str());
+      led_state(sensorValue, GREEN, BLUE, RED);
       delay(5000);
       client.loop();
       state = SET_SLEEP;
