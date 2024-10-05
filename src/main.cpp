@@ -6,6 +6,10 @@
 
 // Variables:
 int sensorPin = A0;
+int led_green = D4;
+int led_blue = D5;
+int led_red = D6;
+
 int sensorValue;
 const char* broker = MQTT_BROKER_IP;
 int sleep_duration = 5000;
@@ -41,7 +45,7 @@ void mqtt_reconnect() {
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
-    if (client.connect("arduinoClient")) {
+    if (client.connect("arduinoClient", USER, USER_PASSWORD)) {
       Serial.println("connected.");
       client.subscribe("channel");
     } else {
@@ -80,12 +84,21 @@ void setup() {
   // Setup serial communication, 9600 set as a default value
   Serial.begin(9600);
   pinMode(sensorPin, INPUT);
+  pinMode(led_green, OUTPUT);
+  pinMode(led_blue, OUTPUT);
+  pinMode(led_red, OUTPUT);
+
+  digitalWrite(led_green, HIGH);
+  digitalWrite(led_blue, HIGH);
+  digitalWrite(led_red, HIGH);
 
   // Setup wifi
   wifi_reconnect();
 
   client.setServer(broker, 1883);
   client.setCallback(callback);
+
+  // digitalWrite(led_green, HIGH);
 };
 
 void loop() {
@@ -132,6 +145,7 @@ void loop() {
       delay(5000);
       client.loop();
       state = SET_SLEEP;
+      
       break;
 
     case SLEEP:
