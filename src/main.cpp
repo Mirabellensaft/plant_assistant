@@ -23,6 +23,7 @@ const char* wifi_password = WIFI_PASSWORD;
 // Values:
 int sensorValue;
 int sleep_duration = 5000;
+int mqtt_keepalive = 4500;
 
 // States:
 typedef enum {
@@ -59,6 +60,7 @@ void setup() {
 
   // Setup MQTT
   client.setServer(broker, 1883);
+  client.setKeepAlive(mqtt_keepalive);
   client.setCallback(callback);
 };
 
@@ -72,17 +74,18 @@ void loop() {
   // State machine to gracefully disconnect and reconnect services
   switch (state) {
     case WAKE_UP:
+      
       Serial.println("Waking up...");
       wifi_reconnect(wifi_ssid, wifi_password);
       if (!client.connected()) {
-        mqtt_reconnect(client, user, user_password);
+        mqtt_reconnect(&client, user, user_password);
       };
       state = AWAKE;
       break;
 
     case ONLY_WIFI:
       if (!client.connected()) {
-        mqtt_reconnect(client, user, user_password);
+        mqtt_reconnect(&client, user, user_password);
       };
       state = AWAKE;
       break;
@@ -90,7 +93,7 @@ void loop() {
     case SET_SLEEP:
       client.loop();
       Serial.println("Setting to sleep.");
-      // client.disconnect();
+      client.disconnect();
       wifi.stop();
       state = SLEEP;
       break;

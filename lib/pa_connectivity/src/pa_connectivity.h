@@ -8,7 +8,7 @@
 
 // function declarations:
 void callback(char* topic, byte* payload, unsigned int length);
-void mqtt_reconnect(PubSubClient client, const char* user, const char* user_password);
+void mqtt_reconnect(PubSubClient* client, const char* user, const char* user_password);
 void wifi_reconnect(const char* wifi_ssid, const char* wifi_password);
 
 #endif

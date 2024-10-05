@@ -14,18 +14,17 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.println();
 }
 
-
-void mqtt_reconnect(PubSubClient client, const char* user, const char* user_password) {
+void mqtt_reconnect(PubSubClient* client, const char* user, const char* user_password) {
   // Loop until we're reconnected
-  while (!client.connected()) {
+  while (!client->connected()) {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
-    if (client.connect("arduinoClient", user, user_password)) {
+    if (client->connect("arduinoClient", user, user_password)) {
       Serial.println("connected.");
-      client.subscribe("channel");
+      client->subscribe("channel");
     } else {
       Serial.print("failed, rc=");
-      Serial.print(client.state());
+      Serial.print(client->state());
       Serial.println(" try again in 5 seconds");
       delay(5000);
     }
