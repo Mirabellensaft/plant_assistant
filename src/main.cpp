@@ -2,16 +2,25 @@
 #include <SPI.h>
 #include <WiFiS3.h>
 #include <PubSubClient.h>
+#include <pa_connectivity.h>
 #include <secrets.h>
 
 // Variables:
+// Pins:
 int sensorPin = A0;
 int led_green = D4;
 int led_blue = D5;
 int led_red = D6;
 
-int sensorValue;
+// Secrets:
 const char* broker = MQTT_BROKER_IP;
+const char* user = USER;
+const char* user_password = USER_PASSWORD;
+const char* wifi_ssid = WIFI_SSID;
+const char* wifi_password = WIFI_PASSWORD;
+
+// Values:
+int sensorValue;
 int sleep_duration = 5000;
 
 // States:
@@ -25,60 +34,8 @@ typedef enum {
 
 state_t state = SLEEP;
 
-
-// function declarations:
-void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  for (int i=0;i<length;i++) {
-    Serial.print((char)payload[i]);
-  }
-  Serial.println();
-}
-
 WiFiClient wifi;
 PubSubClient client(wifi);
-
-void mqtt_reconnect() {
-  // Loop until we're reconnected
-  while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    // Attempt to connect
-    if (client.connect("arduinoClient", USER, USER_PASSWORD)) {
-      Serial.println("connected.");
-      client.subscribe("channel");
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      delay(5000);
-    }
-  }
-}
-
-void wifi_reconnect() {
-  Serial.print("Attempting Wifi connection...");
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-    
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("connected.");
-    // Serial.print("IP Adresse: ");
-    // Serial.println(WiFi.localIP());
-
-    // RSSI (Signalstärke)
-    long rssi = WiFi.RSSI();
-    // Serial.print("Signalstärke (RSSI): ");
-    // Serial.println(rssi);
-  } else {
-    Serial.print("error");
-  } 
-}
 
 void setup() {
   // Setup serial communication, 9600 set as a default value
@@ -93,12 +50,11 @@ void setup() {
   digitalWrite(led_red, HIGH);
 
   // Setup wifi
-  wifi_reconnect();
+  wifi_reconnect(wifi_ssid, wifi_password);
 
+  // Setup MQTT
   client.setServer(broker, 1883);
   client.setCallback(callback);
-
-  // digitalWrite(led_green, HIGH);
 };
 
 void loop() {
@@ -108,19 +64,20 @@ void loop() {
   String payload = buffer;
   int sensorValue = 0;
 
+  // State machine to gracefully disconnect and reconnect services
   switch (state) {
     case WAKE_UP:
       Serial.println("Waking up...");
-      wifi_reconnect();
+      wifi_reconnect(wifi_ssid, wifi_password);
       if (!client.connected()) {
-        mqtt_reconnect();
+        mqtt_reconnect(client, user, user_password);
       };
       state = AWAKE;
       break;
 
     case ONLY_WIFI:
       if (!client.connected()) {
-        mqtt_reconnect();
+        mqtt_reconnect(client, user, user_password);
       };
       state = AWAKE;
       break;
