@@ -3,6 +3,7 @@
 #include <WiFiS3.h>
 #include <PubSubClient.h>
 
+int trials = 0;
 // function declarations:
 void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
@@ -22,11 +23,21 @@ void mqtt_reconnect(PubSubClient* client, const char* user, const char* user_pas
     if (client->connect("arduinoClient", user, user_password)) {
       Serial.println("connected.");
       client->subscribe("channel");
+      trials = 0;
     } else {
       Serial.print("failed, rc=");
       Serial.print(client->state());
-      Serial.println(" try again in 5 seconds");
-      delay(5000);
+
+      if (trials < 6){
+        
+        Serial.println(" try again in 10 seconds");
+        trials += 1;
+        delay(10000);
+      } else {
+        Serial.println(" try again in 1 Minute");
+        delay(60000);
+        trials = 0;
+      }
     }
   }
 }
@@ -36,7 +47,7 @@ void wifi_reconnect(const char* wifi_ssid, const char* wifi_password) {
   WiFi.begin(wifi_ssid, wifi_password);
 
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+    delay(1000);
     Serial.print(".");
   }
     
