@@ -1,10 +1,12 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <WiFiS3.h>
+#include <ESP_SSLClient.h>
 #include <PubSubClient.h>
 #include <pa_connectivity.h>
 #include <led_signalling.h>
 #include <secrets.h>
+#include <certs.h>
 
 // Variables:
 // Pins:
@@ -36,8 +38,9 @@ typedef enum {
 
 state_t state = SLEEP;
 
+ESP_SSLClient ssl_client;
 WiFiClient wifi;
-PubSubClient client(wifi);
+PubSubClient client(ssl_client);
 
 void setup() {
   // Setup serial communication, 9600 set as a default value
@@ -57,9 +60,13 @@ void setup() {
 
   // Setup wifi
   wifi_reconnect(wifi_ssid, wifi_password);
+  ssl_client.setCACert(ROOT_CA);
+  ssl_client.setCertificate(CERT);
+  ssl_client.setPrivateKey(PRIVATE_KEY);
+  ssl_client.setClient(&wifi);
 
   // Setup MQTT
-  client.setServer(broker, 1883);
+  client.setServer(broker, 8883);
   client.setKeepAlive(mqtt_keepalive);
   client.setCallback(callback);
 };
